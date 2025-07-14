@@ -1,14 +1,11 @@
-// lib/models/expense.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-
-enum Category { food, transport, entertainment, other }
-
 class Expense {
   final String id;
   final String description;
   final double amount;
   final DateTime date;
-  final Category category;
+  final String category;
+  final String paymentType; // 'cash' ya da 'card'
 
   Expense({
     required this.id,
@@ -16,6 +13,7 @@ class Expense {
     required this.amount,
     required this.date,
     required this.category,
+    required this.paymentType,
   });
 
   Map<String, dynamic> toMap() {
@@ -23,8 +21,9 @@ class Expense {
       'id': id,
       'description': description,
       'amount': amount,
-      'date': date, // ✅ direkt DateTime (Firestore Timestamp olarak saklar)
-      'category': category.name,
+      'date': date,
+      'category': category,
+      'paymentType': paymentType,
     };
   }
 
@@ -32,9 +31,10 @@ class Expense {
     return Expense(
       id: map['id'],
       description: map['description'],
-      amount: map['amount'],
+      amount: (map['amount'] as num).toDouble(),
       date: (map['date'] as Timestamp).toDate(),
-      category: Category.values.byName(map['category']),
+      category: map['category'],
+      paymentType: map['paymentType'] ?? 'cash', // varsayılan
     );
   }
 }

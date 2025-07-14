@@ -4,6 +4,7 @@ import '../models/expense.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import '../services/balance_service.dart';
 
 class AddExpenseScreen extends StatefulWidget {
   const AddExpenseScreen({super.key});
@@ -16,8 +17,25 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   final _formKey = GlobalKey<FormState>();
   final _descController = TextEditingController();
   final _amountController = TextEditingController();
-  Category _selectedCategory = Category.other;
+  final _customCategoryController = TextEditingController();
+
+  final List<String> _predefinedCategories = [
+    'food',
+    'transport',
+    'entertainment',
+    'bills',
+    'health',
+    'shopping',
+    'education',
+    'travel',
+    'gift',
+    'Other',
+  ];
+
+  String _selectedCategory = 'food';
+  bool _isCustomCategory = false;
   DateTime _selectedDate = DateTime.now();
+  String _paymentType = 'cash'; // ✅ nakit varsayılan
 
   void _pickDate() async {
     final picked = await showDatePicker(
@@ -38,12 +56,17 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
+      final category = _isCustomCategory
+          ? _customCategoryController.text.trim()
+          : _selectedCategory;
+
       final expense = Expense(
         id: const Uuid().v4(),
         description: _descController.text,
         amount: double.parse(_amountController.text),
         date: _selectedDate,
-        category: _selectedCategory,
+        category: category,
+        paymentType: _paymentType,
       );
 
       await FirebaseFirestore.instance
@@ -53,9 +76,15 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
           .doc(expense.id)
           .set(expense.toMap());
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Harcama kaydedildi")),
+      // ✅ Bakiyeden düş
+      await BalanceService.subtractFromBalance(
+        type: _paymentType,
+        amount: expense.amount,
       );
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Harcama kaydedildi")));
 
       Navigator.of(context).pop();
     }
@@ -65,6 +94,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   void dispose() {
     _descController.dispose();
     _amountController.dispose();
+    _customCategoryController.dispose();
     super.dispose();
   }
 
@@ -97,18 +127,45 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                 },
               ),
               const SizedBox(height: 12),
-              DropdownButtonFormField<Category>(
+              DropdownButtonFormField<String>(
                 value: _selectedCategory,
-                items: Category.values.map((cat) {
+                items: _predefinedCategories.map((cat) {
                   return DropdownMenuItem(
                     value: cat,
-                    child: Text(cat.name.toUpperCase()),
+                    child: Text(cat.toUpperCase()),
                   );
                 }).toList(),
-                onChanged: (cat) {
-                  if (cat != null) setState(() => _selectedCategory = cat);
+                onChanged: (val) {
+                  if (val == null) return;
+                  setState(() {
+                    _selectedCategory = val;
+                    _isCustomCategory = val == 'Other';
+                  });
                 },
                 decoration: const InputDecoration(labelText: 'Kategori'),
+              ),
+              if (_isCustomCategory)
+                TextFormField(
+                  controller: _customCategoryController,
+                  decoration: const InputDecoration(labelText: 'Kategori adı'),
+                  validator: (val) {
+                    if (_isCustomCategory && (val == null || val.isEmpty)) {
+                      return 'Kategori adı giriniz';
+                    }
+                    return null;
+                  },
+                ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: _paymentType,
+                items: const [
+                  DropdownMenuItem(value: 'cash', child: Text('Nakit')),
+                  DropdownMenuItem(value: 'card', child: Text('Kart')),
+                ],
+                onChanged: (val) {
+                  if (val != null) setState(() => _paymentType = val);
+                },
+                decoration: const InputDecoration(labelText: 'Ödeme Türü'),
               ),
               const SizedBox(height: 12),
               Row(
