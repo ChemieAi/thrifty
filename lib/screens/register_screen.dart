@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:thrifty/screens/login_screen.dart';
 import 'package:thrifty/services/auth_service.dart';
 
@@ -48,16 +49,41 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
 
     try {
+      // Firebase Auth ile kullanıcı kaydı
       await _authService.signUp(
         _emailController.text.trim(),
         _passwordController.text.trim(),
         agreedToTerms: _acceptedTerms,
       );
 
+      final uid = FirebaseAuth.instance.currentUser!.uid;
+
+      // Firestore'a agreedToTerms ve balance yaz
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('settings')
+          .doc('meta')
+          .set({
+        'email': _emailController.text.trim(),
+        'agreedToTerms': _acceptedTerms,
+        'agreedAt': DateTime.now(),
+      });
+
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .collection('settings')
+          .doc('balance')
+          .set({
+        'cash': 0,
+        'card': 0,
+      });
+
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Doğrulama e-postası gönderildi.")),
+        const SnackBar(content: Text("Kayıt başarılı, giriş yapabilirsiniz.")),
       );
 
       Navigator.pushReplacement(
