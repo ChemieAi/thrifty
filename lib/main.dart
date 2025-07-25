@@ -10,7 +10,6 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
   await initializeDateFormatting('tr_TR', null);
-
   runApp(const MyApp());
 }
 
@@ -22,10 +21,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Thrifty',
       theme: ThemeData.light(),
-      supportedLocales: const [
-        Locale('tr', 'TR'), // Türkçe desteği
-        Locale('en', 'US'), // İngilizce fallback
-      ],
+      supportedLocales: const [Locale('tr', 'TR'), Locale('en', 'US')],
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
@@ -39,7 +35,13 @@ class MyApp extends StatelessWidget {
               body: Center(child: CircularProgressIndicator()),
             );
           }
-          return snapshot.hasData ? const HomeScreen() : const LoginScreen();
+
+          final user = snapshot.data;
+          if (user != null && user.emailVerified) {
+            return const HomeScreen();
+          }
+
+          return const LoginScreen();
         },
       ),
     );
